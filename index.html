@@ -97,16 +97,12 @@
 </div>
 
 <script>
-    // --- Configuration ---
-    // !!! CRUCIAL FIX: Added https:// protocol to the domain !!!
     const NGROK_PUBLIC_URL = 'https://tamekia-chainlike-ineludibly.ngrok-free.dev'; 
-    // ---------------------
     
-    // Function to show/hide file or name input
     function toggleSource(hasFile) {
         document.getElementById('fileInputDiv').classList.toggle('hidden', !hasFile);
         document.getElementById('nameInputDiv').classList.toggle('hidden', hasFile);
-        // Ensure only one is required based on selection
+        
         document.getElementById('bookName').required = !hasFile;
         document.getElementById('bookFile').required = hasFile;
     }
@@ -115,22 +111,33 @@
     document.getElementById('orderForm').onsubmit = async (e) => {
         e.preventDefault();
         
-        // 1. Collect Data
+        // 1. Create a FormData object to handle both files and text
+        const formData = new FormData();
+        
         const fileInput = document.getElementById('bookFile');
         const bookNameInput = document.getElementById('bookName');
         
-        const data = {
-            customer: document.getElementById('custName').value,
-            phone: document.getElementById('custPhone').value,
-            address: document.getElementById('custAddr').value,
-            // Get file name OR manual name
-            fileNameOrBook: fileInput.files[0]?.name || bookNameInput.value || 'N/A (No file or name provided)',
-            copies: document.getElementById('copies').value,
-            mode: document.getElementById('mode').value
-        };
+        // Append all text fields
+        formData.append('customer', document.getElementById('custName').value);
+        formData.append('phone', document.getElementById('custPhone').value);
+        formData.append('address', document.getElementById('custAddr').value);
+        formData.append('copies', document.getElementById('copies').value);
+        formData.append('mode', document.getElementById('mode').value);
+        
+        let fileNameOrBook = bookNameInput.value || 'N/A';
 
+        if (fileInput.files.length > 0) {
+            // Append the actual file, using the name 'bookFile' which Multer expects
+            formData.append('bookFile', fileInput.files[0]);
+            // Use the original filename as a text field fallback
+            fileNameOrBook = fileInput.files[0].name;
+        }
+
+        // Add the file name or book name (used if no file was uploaded)
+        formData.append('fileNameOrBook', fileNameOrBook);
+        
         // Simple Validation Check
-        if (!data.customer || !data.phone || !data.address) {
+        if (!formData.get('customer') || !formData.get('phone') || !formData.get('address')) {
             alert("Please fill in all required fields (Name, Phone, Address).");
             return;
         }
@@ -141,19 +148,18 @@
             
             const response = await fetch(`${NGROK_PUBLIC_URL}/submit-order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                // IMPORTANT: DO NOT set Content-Type header
+                body: formData // Send the FormData object
             });
 
             document.querySelector('button[type="submit"]').textContent = "Submit Order";
 
             if (response.ok) {
                 alert("Order Sent Successfully! Your order has been registered.");
-                // Optionally reset the form
                 document.getElementById('orderForm').reset(); 
                 
             } else {
-                alert(`Error: Could not send order. Your server may be offline. Status: ${response.status}`);
+                alert(`Error: Could not send order. Your server may be offline. Status: ${response.status}.`);
             }
         } catch (err) {
             document.querySelector('button[type="submit"]').textContent = "Submit Order";
@@ -162,7 +168,6 @@
         }
     };
     
-    // Request notification permission on load (Optional, but good practice)
     if ("Notification" in window && Notification.permission !== "granted") {
         Notification.requestPermission();
     }
@@ -170,3 +175,4 @@
 
 </body>
 </html>
+
